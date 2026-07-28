@@ -1,0 +1,7 @@
+streamlit
+transformers
+torch --index-url https://download.pytorch.org/whl/cpu
+huggingface_hub
+scikit-learn
+joblib
+numpy
