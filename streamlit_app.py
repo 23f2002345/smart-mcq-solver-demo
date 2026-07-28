@@ -10,7 +10,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import joblib
 
 # ---- CHANGE THESE TO YOUR ACTUAL HF USERNAME ----
-HF_USERNAME = "your-hf-username"
+HF_USERNAME = "Gop05"
 ASSETS_REPO = f"{HF_USERNAME}/smart-mcq-assets"
 DEBERTA_REPO = f"{HF_USERNAME}/smart-mcq-deberta"
 
