@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from huggingface_hub import hf_hub_download
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from sklearn.metrics.pairwise import cosine_similarity
+import onnxruntime as rt
 
 # ---- CHANGE TO YOUR ACTUAL HF USERNAME ----
 HF_USERNAME = "Gop05"
@@ -23,19 +24,22 @@ def load_everything():
     def asset(fname):
         return hf_hub_download(repo_id=ASSETS_REPO, filename=fname)
 
-    # ---- classical model (pickle protocol 2, works on any Python) ----
-    with open(asset("classical_model.pkl"), "rb") as f:
-        clf1 = pickle.load(f)
+    # ---- classical model via ONNX (version-safe) ----
+    sess = rt.InferenceSession(asset("classical_model.onnx"))
+    input_name  = sess.get_inputs()[0].name
+    output_name = sess.get_outputs()[1].name   # index 1 = probabilities
+
+    # ---- tfidf vectorizer ----
     with open(asset("tfidf_vectorizer.pkl"), "rb") as f:
         tfidf = pickle.load(f)
 
     # ---- vocab + config ----
     with open(asset("vocab.json")) as f:
         vocab_data = json.load(f)
-    word2idx  = {w: i for i, w in enumerate(vocab_data["vocab"])}
-    PAD_IDX   = vocab_data["pad_idx"]
-    MAX_LEN   = vocab_data["max_len"]
-    EMBED_DIM = vocab_data["embed_dim"]
+    word2idx   = {w: i for i, w in enumerate(vocab_data["vocab"])}
+    PAD_IDX    = vocab_data["pad_idx"]
+    MAX_LEN    = vocab_data["max_len"]
+    EMBED_DIM  = vocab_data["embed_dim"]
     vocab_size = len(vocab_data["vocab"])
 
     # ---- ensemble weights ----
@@ -101,7 +105,9 @@ def load_everything():
     bilstm.eval()
 
     return {
-        "clf1": clf1,
+        "sess": sess,
+        "input_name": input_name,
+        "output_name": output_name,
         "tfidf": tfidf,
         "word2idx": word2idx,
         "PAD_IDX": PAD_IDX,
@@ -158,16 +164,25 @@ def classical_probs(prompt, options):
     order = np.argsort(-srow)
     rank  = {LETTERS[order[r]]: r + 1 for r in range(5)}
     lens  = [len(options[L]) for L in LETTERS]
+
     probs = []
     for L in LETTERS:
         ot  = options[L]
         avg = np.mean([sims[o] for o in LETTERS if o != L])
-        feat = [[
+        feat = np.array([[
             sims[L], rank[L], sims[L] / total, srow.max() - sims[L],
             len(ot), len(ot.split()), 5 - rank[L] + 1,
             avg, sims[L] - avg, len(ot) / (sum(lens) + 1e-9),
-        ]]
-        probs.append(assets["clf1"].predict_proba(feat)[0][1])
+        ]], dtype=np.float32)
+
+        # run through ONNX session
+        result = assets["sess"].run(
+            [assets["output_name"]],
+            {assets["input_name"]: feat}
+        )[0]
+        # result is shape (1, 2) → prob of class 1
+        probs.append(float(result[0][1]))
+
     probs = np.array(probs)
     return probs / (probs.sum() + 1e-9)
 
@@ -197,11 +212,11 @@ def predict(prompt, a, b, c, d, e):
     return top3, breakdown, False
 
 # ---- UI ----
-st.title("Smart MCQ Solver")
+st.title(" Smart MCQ Solver")
 st.caption("Ensemble: TF-IDF+GBM · DeBERTa-v3-small · Text-CNN · BiLSTM")
 st.markdown("---")
 
-prompt = st.text_area("📝 Question / Prompt", height=100,
+prompt = st.text_area(" Question / Prompt", height=100,
                       placeholder="Paste your question here...")
 col1, col2 = st.columns(2)
 with col1:
