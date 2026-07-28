@@ -1,7 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 streamlit
 transformers
-torch --index-url https://download.pytorch.org/whl/cpu
 huggingface_hub
 scikit-learn==1.6.1
 numpy==2.0.2
 joblib
+torch
+onnxruntime
