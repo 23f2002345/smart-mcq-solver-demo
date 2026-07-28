@@ -213,7 +213,6 @@ def predict(prompt, a, b, c, d, e):
 
 # ---- UI ----
 st.title(" Smart MCQ Solver")
-st.caption("Ensemble: TF-IDF+GBM · DeBERTa-v3-small · Text-CNN · BiLSTM")
 st.markdown("---")
 
 prompt = st.text_area(" Question / Prompt", height=100,
@@ -227,7 +226,7 @@ with col2:
     b = st.text_input("Option B")
     d = st.text_input("Option D")
 
-if st.button("🔍 Predict", type="primary"):
+if st.button("Predict", type="primary"):
     if not prompt.strip():
         st.warning("Please enter a question first.")
     elif not all([a, b, c, d, e]):
@@ -237,7 +236,7 @@ if st.button("🔍 Predict", type="primary"):
             top3, breakdown, exact = predict(prompt, a, b, c, d, e)
         if exact:
             st.success(f"**Top-3 Answers: {top3}**")
-            st.info("⚡ Exact match found in training data")
+            
         else:
             st.success(f"**Top-3 Predicted Answers: {top3}**")
             st.markdown("**Probability breakdown:**")
